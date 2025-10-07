@@ -90,8 +90,8 @@ resource "tls_private_key" "msk_client_key" {
 }
 
 resource "local_file" "private_key" {
-  content  = tls_private_key.msk_client_key.private_key_pem
-  filename = "${path.module}/msk-client-key.pem"
+  content         = tls_private_key.msk_client_key.private_key_pem
+  filename        = "${path.module}/msk-client-key.pem"
   file_permission = "0400"
 }
 
@@ -99,13 +99,6 @@ resource "local_file" "private_key" {
 resource "aws_security_group" "msk_sg" {
   name_prefix = "msk-cluster-sg"
   vpc_id      = aws_vpc.msk_vpc.id
-
-  ingress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.ec2_sg.id]
-  }
 
   egress {
     from_port   = 0
@@ -131,13 +124,6 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.msk_sg.id]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -148,6 +134,25 @@ resource "aws_security_group" "ec2_sg" {
   tags = {
     Name = "MSK-Client-Security-Group"
   }
+}
+
+# Security Group Rules
+resource "aws_security_group_rule" "msk_from_ec2" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.ec2_sg.id
+  security_group_id        = aws_security_group.msk_sg.id
+}
+
+resource "aws_security_group_rule" "ec2_from_msk" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.msk_sg.id
+  security_group_id        = aws_security_group.ec2_sg.id
 }
 
 # IAM Role for EC2
@@ -249,7 +254,7 @@ resource "aws_msk_cluster" "my_demo_msk_cluster" {
 # EC2 Instance
 resource "aws_instance" "msk_client" {
   ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = "t2.large"
+  instance_type          = "t2.micro"
   key_name               = aws_key_pair.msk_client_key.key_name
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   subnet_id              = aws_subnet.msk_subnets[0].id
